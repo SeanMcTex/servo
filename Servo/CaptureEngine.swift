@@ -2,6 +2,7 @@ import CoreGraphics
 import ScreenCaptureKit
 import AppKit
 import Foundation
+import SystemConfiguration
 
 actor CaptureEngine {
 
@@ -32,20 +33,33 @@ actor CaptureEngine {
     // MARK: - Single capture cycle
 
     private func runCycle(appState: AppState) async {
-        // 1. Check/request screen recording permission
+        // 1. Skip if screen is locked or recording permission is absent
+        let locked = await MainActor.run { appState.isScreenLocked }
+        guard !locked else { return }
+
         guard CGPreflightScreenCaptureAccess() else {
             CGRequestScreenCaptureAccess()
             return
         }
 
-        // 2. Read current settings + active display ID on MainActor
-        let (url, model, prompt, activeDisplayID) = await MainActor.run {
+        // 2. Read current settings + active display + frontmost app on MainActor
+        let (url, model, prompt, activeDisplayID, appName, windowTitle, screenCount) = await MainActor.run {
             let displayID = NSScreen.main
                 .flatMap { $0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID }
-            return (appState.ollamaURL, appState.modelName, appState.systemPrompt, displayID)
+            let frontmost = NSWorkspace.shared.frontmostApplication
+            let appName = frontmost?.localizedName ?? "Unknown"
+            let windowTitle = frontmost.flatMap { frontmostWindowTitle(pid: $0.processIdentifier) }
+            let screenCount = NSScreen.screens.count
+            return (appState.ollamaURL, appState.modelName, appState.systemPrompt, displayID, appName, windowTitle, screenCount)
         }
 
-        // 3. Capture screenshot
+        // 3. Log observation and build context summary
+        await ObservationLog.shared.append(appName: appName, windowTitle: windowTitle)
+        let historicalContext = await ObservationLog.shared.contextSummary()
+        let instantContext = CaptureEngine.instantContext(windowTitle: windowTitle, screenCount: screenCount)
+        let context = [instantContext, historicalContext].filter { !$0.isEmpty }.joined(separator: " ")
+
+        // 4. Capture screenshot
         let cgImage: CGImage
         do {
             cgImage = try await captureDisplay(preferredDisplayID: activeDisplayID)
@@ -54,27 +68,28 @@ actor CaptureEngine {
             return
         }
 
-        // 4. Change detection — skip if screen hasn't changed meaningfully
+        // 5. Change detection — skip if screen hasn't changed meaningfully
         let fingerprint = ChangeDetector.fingerprint(of: cgImage)
         guard ChangeDetector.hasChanged(from: lastFingerprint, to: fingerprint) else {
             return
         }
         lastFingerprint = fingerprint
 
-        // 5. Resize and JPEG-encode
+        // 6. Resize and JPEG-encode
         guard let imageData = jpegData(from: cgImage, maxWidth: 1280) else {
             return
         }
 
-        // 6. Call Ollama
+        // 7. Call Ollama
         await MainActor.run { appState.status = .thinking }
 
         do {
             let utterance = try await OllamaClient().generate(
                 baseURL: url,
                 model: model,
-                systemPrompt: prompt,
-                imageData: imageData
+                personality: prompt,
+                imageData: imageData,
+                context: context
             )
             await MainActor.run {
                 appState.utterance = utterance
@@ -156,4 +171,107 @@ actor CaptureEngine {
 
 private enum CaptureError: Error {
     case noDisplay
+}
+
+// MARK: - Instant context
+
+extension CaptureEngine {
+    /// Assembles all instantaneous context into a compact string.
+    nonisolated static func instantContext(windowTitle: String?, screenCount: Int) -> String {
+        var parts: [String] = []
+
+        // Day + time of day + weekend flag
+        let now = Date()
+        let cal = Calendar.current
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+        let dayName = formatter.string(from: now)
+        let hour = cal.component(.hour, from: now)
+        let period: String
+        switch hour {
+        case 5..<12:  period = "morning"
+        case 12..<17: period = "afternoon"
+        case 17..<21: period = "evening"
+        default:      period = "night"
+        }
+        let weekendSuffix = cal.isDateInWeekend(now) ? " (weekend)" : ""
+        parts.append("\(dayName) \(period)\(weekendSuffix)")
+
+        // Battery + low power mode
+        if let battery = BatteryInfo.current() {
+            let lpm = ProcessInfo.processInfo.isLowPowerModeEnabled ? ", low power mode on" : ""
+            parts.append(battery.contextString + lpm)
+        } else if ProcessInfo.processInfo.isLowPowerModeEnabled {
+            parts.append("Low power mode on")
+        }
+
+        // Thermal state (only when notable)
+        switch ProcessInfo.processInfo.thermalState {
+        case .fair:     parts.append("Mac running warm")
+        case .serious:  parts.append("Mac running hot")
+        case .critical: parts.append("Mac overheating")
+        default:        break
+        }
+
+        // Network
+        if !isNetworkAvailable() {
+            parts.append("No network connection")
+        }
+
+        // Screen count (only notable when > 1)
+        if screenCount > 1 {
+            parts.append("\(screenCount) screens connected")
+        }
+
+        // User idle time (only mention after 5 min)
+        let idle = userIdleSeconds()
+        if idle >= 300 {
+            parts.append("User idle for \(Int(idle / 60))m")
+        }
+
+        // Window title
+        if let title = windowTitle, !title.isEmpty {
+            parts.append("Window: \"\(title)\"")
+        }
+
+        return parts.joined(separator: ". ")
+    }
+
+    nonisolated private static func isNetworkAvailable() -> Bool {
+        var flags = SCNetworkReachabilityFlags()
+        var addr = sockaddr(); addr.sa_len = UInt8(MemoryLayout<sockaddr>.size); addr.sa_family = sa_family_t(AF_INET)
+        guard let ref = SCNetworkReachabilityCreateWithAddress(nil, &addr) else { return true }
+        SCNetworkReachabilityGetFlags(ref, &flags)
+        return flags.contains(.reachable) && !flags.contains(.connectionRequired)
+    }
+
+    nonisolated private static func userIdleSeconds() -> Double {
+        let mouse = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .mouseMoved)
+        let key   = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .keyDown)
+        let click = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .leftMouseDown)
+        return min(mouse, min(key, click))
+    }
+}
+
+// MARK: - Window title helper
+
+/// Returns the title of the frontmost visible window owned by `pid`, if available.
+/// Prefers large document-style windows over toolbars and panels.
+/// Requires screen recording permission (already granted via entitlement).
+private func frontmostWindowTitle(pid: pid_t) -> String? {
+    guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else {
+        return nil
+    }
+
+    let ownedWindows = list.filter { ($0[kCGWindowOwnerPID as String] as? pid_t) == pid }
+
+    // Prefer a window large enough to be a primary document window
+    let largeWindow = ownedWindows.first {
+        guard let bounds = $0[kCGWindowBounds as String] as? [String: CGFloat] else { return false }
+        return (bounds["Width"] ?? 0) > 300 && (bounds["Height"] ?? 0) > 150
+    }
+
+    // Fall back to any window with a non-empty title
+    let candidate = largeWindow ?? ownedWindows.first { _ in true }
+    return (candidate?[kCGWindowName as String] as? String).flatMap { $0.isEmpty ? nil : $0 }
 }

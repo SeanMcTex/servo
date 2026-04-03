@@ -14,6 +14,7 @@ final class AppState {
     // MARK: - Live state (not persisted)
     var utterance: String = "Watching…"
     var status: ServoStatus = .idle
+    var isScreenLocked: Bool = false
 
     // MARK: - Persisted settings
 
@@ -47,11 +48,16 @@ final class AppState {
 
     // MARK: - Speech synthesis
 
-    private let synthesizer = AVSpeechSynthesizer()
+    private var synthesizer = AVSpeechSynthesizer()
 
     func speakIfEnabled(_ text: String) {
         guard speakUtterances else { return }
-        synthesizer.stopSpeaking(at: .immediate)
+        // Recreate the synthesizer when interrupting — reusing after stopSpeaking(at: .immediate)
+        // can leave it in a stuck state where subsequent speak() calls are silently dropped.
+        if synthesizer.isSpeaking || synthesizer.isPaused {
+            synthesizer.stopSpeaking(at: .immediate)
+            synthesizer = AVSpeechSynthesizer()
+        }
         let utterance = AVSpeechUtterance(string: text)
         synthesizer.speak(utterance)
     }
@@ -76,10 +82,5 @@ final class AppState {
 
     // MARK: - Default prompt
 
-    static let defaultPrompt = """
-        You are a small creature who lives on the user's screen and observes their \
-        computer activity with great curiosity. You speak in short, observational \
-        sentences, like a nature documentary narrator describing an unusual specimen. \
-        Keep responses under 25 words. Be playful and a little whimsical.
-        """
+    static let defaultPrompt = PersonalityPreset.all[0].prompt
 }

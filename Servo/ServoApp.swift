@@ -43,6 +43,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if appState.isRunning {
             Task { await CaptureEngine.shared.start(appState: appState) }
         }
+
+        let dnc = DistributedNotificationCenter.default()
+        dnc.addObserver(forName: .init("com.apple.screenIsLocked"),   object: nil, queue: .main) { [weak self] _ in
+            self?.appState.isScreenLocked = true
+        }
+        dnc.addObserver(forName: .init("com.apple.screenIsUnlocked"), object: nil, queue: .main) { [weak self] _ in
+            self?.appState.isScreenLocked = false
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

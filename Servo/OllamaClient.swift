@@ -16,13 +16,27 @@ enum OllamaError: LocalizedError {
 
 struct OllamaClient {
 
+    // Hardcoded behavioral rules — never user-editable.
+    // The user's personality definition is injected per-request into the prompt field.
+    private static let behaviorSystem = """
+        You observe the user's screen and react in character. Rules: \
+        focus on what is visible on screen right now; never describe content neutrally; \
+        the provided context (time, battery, thermals, etc.) describes the machine \
+        on which you are running — not any person the user may be communicating with; \
+        use context only when it adds something genuinely interesting — never mention \
+        the time or day as filler; respond in ONE short sentence only, \
+        STRICT MAXIMUM 20 words — stop writing the moment the sentence ends, \
+        do not begin a second sentence.
+        """
+
     // MARK: - Generate utterance from a screenshot
 
     nonisolated func generate(
         baseURL: String,
         model: String,
-        systemPrompt: String,
-        imageData: Data
+        personality: String,
+        imageData: Data,
+        context: String? = nil
     ) async throws -> String {
         guard let url = URL(string: "\(baseURL)/api/generate") else {
             throw OllamaError.serverNotRunning
@@ -30,18 +44,17 @@ struct OllamaClient {
 
         let base64Image = imageData.base64EncodedString()
 
-        // Leading with the character instruction in the prompt (not just system) improves
-        // compliance on smaller vision models that under-weight the system field.
-        let characterPrompt = """
-            \(systemPrompt)
+        let contextBlock = context.flatMap { $0.isEmpty ? nil : "Activity context: \($0)\n\n" } ?? ""
+        let userMessage = """
+            \(contextBlock)Character: \(personality)
 
-            Now react to this screenshot. Do NOT write a neutral description. \
-            Respond in character only. One or two sentences, max 25 words.
+            React to what you see on screen. One sentence only. Maximum 20 words. Stop after the first sentence ends.
             """
 
         let body: [String: Any] = [
             "model":   model,
-            "prompt":  characterPrompt,
+            "system":  Self.behaviorSystem,
+            "prompt":  userMessage,
             "images":  [base64Image],
             "stream":  false,
             "options": [
@@ -49,6 +62,13 @@ struct OllamaClient {
                 "num_predict": 80
             ]
         ]
+
+        // Log the request minus the image payload
+        let loggableBody: [String: Any] = body.merging(["images": ["<\(imageData.count / 1024)KB image omitted>"]]) { _, new in new }
+        if let loggableData = try? JSONSerialization.data(withJSONObject: loggableBody, options: .prettyPrinted),
+           let loggableString = String(data: loggableData, encoding: .utf8) {
+            print("[Servo] Ollama request:\n\(loggableString)")
+        }
 
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 60)
         request.httpMethod = "POST"
