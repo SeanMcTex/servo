@@ -4,10 +4,13 @@ import SwiftUI
 final class FloatingPetPanel: NSPanel, NSWindowDelegate {
 
     private static let frameOriginKey = "petPanelOrigin"
+    private weak var appState: AppState?
 
     init(appState: AppState) {
-        let defaultRect = CGRect(x: 40, y: 40, width: 280, height: 100)
-        let savedRect = FloatingPetPanel.savedRect() ?? defaultRect
+        let defaultRect = CGRect(x: 40, y: 40, width: 440, height: 220)
+        // If a saved rect exists but was from the old small design, use the new default
+        let saved = FloatingPetPanel.savedRect()
+        let savedRect = (saved.map { $0.height > 150 } == true) ? saved! : defaultRect
 
         super.init(
             contentRect: savedRect,
@@ -15,6 +18,8 @@ final class FloatingPetPanel: NSPanel, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
+
+        self.appState = appState
 
         isFloatingPanel = true
         hidesOnDeactivate = false
@@ -30,12 +35,15 @@ final class FloatingPetPanel: NSPanel, NSWindowDelegate {
         hostingView.frame = CGRect(origin: .zero, size: savedRect.size)
         hostingView.autoresizingMask = [.width, .height]
         contentView = hostingView
+
+        appState.panelFrame = savedRect
     }
 
     // MARK: - NSWindowDelegate
 
     func windowDidMove(_ notification: Notification) {
         FloatingPetPanel.saveOrigin(frame.origin)
+        appState?.panelFrame = frame
     }
 
     // MARK: - UserDefaults persistence
@@ -45,7 +53,7 @@ final class FloatingPetPanel: NSPanel, NSWindowDelegate {
               let x = dict["x"] as? Double,
               let y = dict["y"] as? Double
         else { return nil }
-        return CGRect(x: x, y: y, width: 280, height: 100)
+        return CGRect(x: x, y: y, width: 440, height: 220)
     }
 
     private static func saveOrigin(_ origin: CGPoint) {
