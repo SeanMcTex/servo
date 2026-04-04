@@ -43,14 +43,14 @@ actor CaptureEngine {
         }
 
         // 2. Read current settings + active display + frontmost app on MainActor
-        let (url, model, prompt, activeDisplayID, appName, windowTitle, screenCount) = await MainActor.run {
+        let (url, model, prompt, aiBackend, activeDisplayID, appName, windowTitle, screenCount) = await MainActor.run {
             let displayID = NSScreen.main
                 .flatMap { $0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID }
             let frontmost = NSWorkspace.shared.frontmostApplication
             let appName = frontmost?.localizedName ?? "Unknown"
             let windowTitle = frontmost.flatMap { frontmostWindowTitle(pid: $0.processIdentifier) }
             let screenCount = NSScreen.screens.count
-            return (appState.ollamaURL, appState.modelName, appState.systemPrompt, displayID, appName, windowTitle, screenCount)
+            return (appState.ollamaURL, appState.modelName, appState.systemPrompt, appState.aiBackend, displayID, appName, windowTitle, screenCount)
         }
 
         // 3. Log observation and build context summary
@@ -75,26 +75,37 @@ actor CaptureEngine {
         }
         lastFingerprint = fingerprint
 
-        // 6. Resize and JPEG-encode
-        guard let imageData = jpegData(from: cgImage, maxWidth: 1280) else {
-            return
-        }
-
-        // 7. Call Ollama
+        // 6. Call AI backend
         await MainActor.run { appState.status = .thinking }
 
         do {
-            let utterance = try await OllamaClient().generate(
-                baseURL: url,
-                model: model,
-                personality: prompt,
-                imageData: imageData,
-                context: context
-            )
+            let utterance: String
+            switch aiBackend {
+            case .onDevice:
+                utterance = try await OnDeviceClient().generate(
+                    personality: prompt,
+                    cgImage: cgImage,
+                    context: context
+                )
+            case .ollama:
+                guard let imageData = jpegData(from: cgImage, maxWidth: 1280) else { return }
+                utterance = try await OllamaClient().generate(
+                    baseURL: url,
+                    model: model,
+                    personality: prompt,
+                    imageData: imageData,
+                    context: context
+                )
+            }
             await MainActor.run {
                 appState.utterance = utterance
                 appState.status = .idle
                 appState.speakIfEnabled(utterance)
+            }
+        } catch let onDeviceError as OnDeviceError {
+            await MainActor.run {
+                appState.utterance = "Apple Intelligence isn't available right now."
+                appState.status = .error(onDeviceError.localizedDescription)
             }
         } catch let urlError as URLError where urlError.isConnectionRefused {
             await MainActor.run {
@@ -179,6 +190,9 @@ extension CaptureEngine {
     /// Assembles all instantaneous context into a compact string.
     nonisolated static func instantContext(windowTitle: String?, screenCount: Int) -> String {
         var parts: [String] = []
+
+        // User's name
+        parts.append("User: \(NSFullUserName())")
 
         // Day + time of day + weekend flag
         let now = Date()

@@ -8,6 +8,11 @@ enum ServoStatus: Equatable {
     case error(String)
 }
 
+enum AIBackend: String {
+    case ollama
+    case onDevice
+}
+
 @Observable
 final class AppState {
 
@@ -29,6 +34,10 @@ final class AppState {
 
     var modelName: String = "llava" {
         didSet { UserDefaults.standard.set(modelName, forKey: "modelName") }
+    }
+
+    var aiBackend: AIBackend = .ollama {
+        didSet { UserDefaults.standard.set(aiBackend.rawValue, forKey: "aiBackend") }
     }
 
     var systemPrompt: String = AppState.defaultPrompt {
@@ -75,6 +84,7 @@ final class AppState {
         if let v = d.object(forKey: "isRunning") as? Bool { isRunning = v }
         if let v = d.string(forKey: "ollamaURL") { ollamaURL = v }
         if let v = d.string(forKey: "modelName") { modelName = v }
+        if let v = d.string(forKey: "aiBackend"), let b = AIBackend(rawValue: v) { aiBackend = b }
         if let v = d.string(forKey: "systemPrompt") { systemPrompt = v }
         if let v = d.object(forKey: "captureInterval") as? Double { captureInterval = v }
         if let v = d.object(forKey: "isPanelVisible") as? Bool { isPanelVisible = v }

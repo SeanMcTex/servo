@@ -129,30 +129,47 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            // MARK: AI Backend
+            Section("AI Backend") {
+                Picker("Backend", selection: $appState.aiBackend) {
+                    Text("Ollama").tag(AIBackend.ollama)
+                    Text("Apple Intelligence").tag(AIBackend.onDevice)
+                }
+                .pickerStyle(.segmented)
+
+                if appState.aiBackend == .onDevice {
+                    Label("Uses Vision + Apple Intelligence on-device. No server required.", systemImage: "info.circle")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             // MARK: Connection
-            Section("Ollama Connection") {
-                LabeledContent("Server URL") {
-                    TextField("http://localhost:11434", text: $appState.ollamaURL)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 260)
-                }
-
-                LabeledContent("Model") {
-                    TextField("llava", text: $appState.modelName)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 260)
-                }
-
-                HStack(spacing: 8) {
-                    Button("Test Connection") {
-                        Task { await testConnection() }
+            if appState.aiBackend == .ollama {
+                Section("Ollama Connection") {
+                    LabeledContent("Server URL") {
+                        TextField("http://localhost:11434", text: $appState.ollamaURL)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 260)
                     }
-                    .disabled(isTesting)
 
-                    if isTesting {
-                        ProgressView().scaleEffect(0.6).frame(height: 16)
-                    } else {
-                        connectionBadge
+                    LabeledContent("Model") {
+                        TextField("llava", text: $appState.modelName)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 260)
+                    }
+
+                    HStack(spacing: 8) {
+                        Button("Test Connection") {
+                            Task { await testConnection() }
+                        }
+                        .disabled(isTesting)
+
+                        if isTesting {
+                            ProgressView().scaleEffect(0.6).frame(height: 16)
+                        } else {
+                            connectionBadge
+                        }
                     }
                 }
             }
