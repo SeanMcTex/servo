@@ -11,6 +11,8 @@ actor CaptureEngine {
 
     private var captureTask: Task<Void, Never>?
     private var lastFingerprint: [UInt8] = []
+    private var lastAppName: String = ""
+    private var lastWindowTitle: String? = nil
 
     // MARK: - Start / Stop
 
@@ -69,8 +71,13 @@ actor CaptureEngine {
         }
 
         // 5. Change detection — skip if screen hasn't changed meaningfully
+        //    Exception: always fire when the frontmost app or window title changes.
+        let appOrWindowChanged = appName != lastAppName || windowTitle != lastWindowTitle
+        lastAppName = appName
+        lastWindowTitle = windowTitle
+
         let fingerprint = ChangeDetector.fingerprint(of: cgImage)
-        guard ChangeDetector.hasChanged(from: lastFingerprint, to: fingerprint) else {
+        guard appOrWindowChanged || ChangeDetector.hasChanged(from: lastFingerprint, to: fingerprint) else {
             return
         }
         lastFingerprint = fingerprint
