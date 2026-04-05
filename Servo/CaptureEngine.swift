@@ -45,20 +45,21 @@ actor CaptureEngine {
         }
 
         // 2. Read current settings + active display + frontmost app on MainActor
-        let (url, model, prompt, aiBackend, activeDisplayID, appName, windowTitle, screenCount) = await MainActor.run {
+        let (url, model, prompt, aiBackend, activeDisplayID, appName, windowTitle, screenCount, nowPlaying) = await MainActor.run {
             let displayID = NSScreen.main
                 .flatMap { $0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID }
             let frontmost = NSWorkspace.shared.frontmostApplication
             let appName = frontmost?.localizedName ?? "Unknown"
             let windowTitle = frontmost.flatMap { frontmostWindowTitle(pid: $0.processIdentifier) }
             let screenCount = NSScreen.screens.count
-            return (appState.ollamaURL, appState.modelName, appState.systemPrompt, appState.aiBackend, displayID, appName, windowTitle, screenCount)
+            let nowPlaying = NowPlayingMonitor.shared.currentTrack
+            return (appState.ollamaURL, appState.modelName, appState.systemPrompt, appState.aiBackend, displayID, appName, windowTitle, screenCount, nowPlaying)
         }
 
         // 3. Log observation and build context summary
         await ObservationLog.shared.append(appName: appName, windowTitle: windowTitle)
         let historicalContext = await ObservationLog.shared.contextSummary()
-        let instantContext = CaptureEngine.instantContext(windowTitle: windowTitle, screenCount: screenCount)
+        let instantContext = CaptureEngine.instantContext(windowTitle: windowTitle, screenCount: screenCount, nowPlaying: nowPlaying)
         let context = instantContext + historicalContext
 
         // 4. Capture screenshot
@@ -195,7 +196,7 @@ private enum CaptureError: Error {
 
 extension CaptureEngine {
     /// Assembles all instantaneous context as a list of "Label: Value" bullet items.
-    nonisolated static func instantContext(windowTitle: String?, screenCount: Int) -> [String] {
+    nonisolated static func instantContext(windowTitle: String?, screenCount: Int, nowPlaying: String?) -> [String] {
         var parts: [String] = []
 
         // User's name
@@ -258,6 +259,11 @@ extension CaptureEngine {
         // Window title
         if let title = windowTitle, !title.isEmpty {
             parts.append("Window: \(title)")
+        }
+
+        // Now playing (Spotify or Apple Music)
+        if let track = nowPlaying {
+            parts.append("Now playing: \(track)")
         }
 
         return parts
