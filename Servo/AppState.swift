@@ -35,7 +35,7 @@ final class AppState {
         didSet { UserDefaults.standard.set(modelName, forKey: "modelName") }
     }
 
-    var aiBackend: AIBackend = .ollama {
+    var aiBackend: AIBackend = .onDevice {
         didSet { UserDefaults.standard.set(aiBackend.rawValue, forKey: "aiBackend") }
     }
 
