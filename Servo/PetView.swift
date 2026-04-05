@@ -116,35 +116,12 @@ struct PetView: View {
 
     // MARK: - Personality
 
-    private var character: String {
-        switch appState.systemPrompt {
-        case PersonalityPreset.all.first(where: { $0.id == "hal"            })?.prompt: return "🔴"
-        case PersonalityPreset.all.first(where: { $0.id == "marvin"         })?.prompt: return "🤖"
-        case PersonalityPreset.all.first(where: { $0.id == "companion"      })?.prompt: return "🐶"
-        case PersonalityPreset.all.first(where: { $0.id == "tron"           })?.prompt: return "💠"
-        case PersonalityPreset.all.first(where: { $0.id == "commentator"    })?.prompt: return "🎙️"
-        case PersonalityPreset.all.first(where: { $0.id == "curse"          })?.prompt: return "💀"
-        case PersonalityPreset.all.first(where: { $0.id == "parent"         })?.prompt: return "😔"
-        case PersonalityPreset.all.first(where: { $0.id == "ships_computer" })?.prompt: return "🖖"
-        case PersonalityPreset.all.first(where: { $0.id == "forecaster"     })?.prompt: return "🌦️"
-        default:                                                                          return "👾"
-        }
+    private var activePreset: PersonalityPreset? {
+        PersonalityPreset.all.first { $0.prompt == appState.systemPrompt }
     }
 
-    private var greeting: String {
-        switch appState.systemPrompt {
-        case PersonalityPreset.all.first(where: { $0.id == "hal"            })?.prompt: return "Good morning, Dave. I'm ready."
-        case PersonalityPreset.all.first(where: { $0.id == "marvin"         })?.prompt: return "Oh. It's on again. Wonderful."
-        case PersonalityPreset.all.first(where: { $0.id == "companion"      })?.prompt: return "Oh! Are we starting? WE'RE STARTING!"
-        case PersonalityPreset.all.first(where: { $0.id == "tron"           })?.prompt: return "System online. User detected. Cycles resuming."
-        case PersonalityPreset.all.first(where: { $0.id == "commentator"    })?.prompt: return "AND WE'RE LIVE! The User is at the controls!"
-        case PersonalityPreset.all.first(where: { $0.id == "curse"          })?.prompt: return "You have returned. I have been waiting."
-        case PersonalityPreset.all.first(where: { $0.id == "parent"         })?.prompt: return "Oh, you're on again. I hope you have a plan today."
-        case PersonalityPreset.all.first(where: { $0.id == "ships_computer" })?.prompt: return "Systems online. Crew activity detected."
-        case PersonalityPreset.all.first(where: { $0.id == "forecaster"     })?.prompt: return "Initializing. Conditions uncertain. Outlook: variable."
-        default: return "Ah. The specimen activates once more."
-        }
-    }
+    private var character: String { activePreset?.emoji ?? "👾" }
+    private var greeting: String { activePreset?.greeting ?? "Ah. The specimen activates once more." }
 
     // MARK: - Animation
 
