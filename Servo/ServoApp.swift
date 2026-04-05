@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Sparkle
 
 @main
 struct ServoApp: App {
@@ -11,7 +12,7 @@ struct ServoApp: App {
         }
 
         MenuBarExtra("Servo", systemImage: "pawprint.fill") {
-            MenuBarMenuView(appState: delegate.appState, delegate: delegate)
+            MenuBarMenuView(appState: delegate.appState, updaterController: delegate.updaterController)
         }
     }
 }
@@ -22,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let appState = AppState()
     private(set) var iconPanel: PetIconPanel?
     private(set) var balloonPanel: PetBalloonPanel?
+    private(set) lazy var updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let icon = PetIconPanel(appState: appState)
@@ -78,11 +80,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+// MARK: - Sparkle updater delegate
+
+extension AppDelegate: SPUUpdaterDelegate {
+    func feedURLString(for updater: SPUUpdater) -> String? {
+        "https://seanmctex.github.io/servo/appcast.xml"
+    }
+}
+
 // MARK: - MenuBar menu
 
 struct MenuBarMenuView: View {
     var appState: AppState
-    var delegate: AppDelegate
+    var updaterController: SPUStandardUpdaterController
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
@@ -109,6 +119,10 @@ struct MenuBarMenuView: View {
             NSApp.activate(ignoringOtherApps: true)
         }
         .keyboardShortcut(",", modifiers: .command)
+
+        Button("Check for Updates…") {
+            updaterController.checkForUpdates(nil)
+        }
 
         Divider()
 
