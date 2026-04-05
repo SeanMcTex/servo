@@ -24,9 +24,9 @@ actor ObservationLog {
         save(entries)
     }
 
-    func contextSummary() -> String {
+    func contextSummary() -> [String] {
         ensureLoaded()
-        guard !entries.isEmpty else { return "" }
+        guard !entries.isEmpty else { return [] }
 
         let now = Date()
         let calendar = Calendar.current
@@ -41,18 +41,16 @@ actor ObservationLog {
         var parts: [String] = []
 
         if let recentSummary = summarize(recent, label: nil) {
-            parts.append("Recent: \(recentSummary)")
+            parts.append("Recent Apps: \(recentSummary)")
         }
         if let todaySummary = summarize(earlierToday, label: nil) {
-            parts.append("Earlier today: \(todaySummary)")
+            parts.append("Earlier Today: \(todaySummary)")
         }
         if let yesterdaySummary = summarize(yesterday, label: nil) {
             parts.append("Yesterday: \(yesterdaySummary)")
         }
 
-        let result = parts.joined(separator: ". ")
-        // Cap at ~150 chars to stay within token budget
-        return result.count > 150 ? String(result.prefix(147)) + "…" : result
+        return parts
     }
 
     // MARK: - Private

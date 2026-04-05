@@ -37,7 +37,7 @@ struct OnDeviceClient {
     nonisolated func generate(
         personality: String,
         cgImage: CGImage,
-        context: String? = nil
+        contextItems: [String] = []
     ) async throws -> String {
         // 1. Check availability
         let availability = SystemLanguageModel.default.availability
@@ -50,13 +50,11 @@ struct OnDeviceClient {
         print("[Servo] Vision extracted \(visibleText.split(separator: " ").count) words: \(visibleText.isEmpty ? "<none>" : visibleText)")
 
         // 3. Build prompt
-        let contextBlock = context.flatMap { $0.isEmpty ? nil : "Activity context: \($0)\n\n" } ?? ""
-        let textBlock = visibleText.isEmpty ? "" : "Visible text on screen: \(visibleText)\n\n"
-        let userMessage = """
-            \(contextBlock)\(textBlock)Character: \(personality)
-
-            React to what you see on screen. One sentence only. Maximum 20 words. Stop after the first sentence ends.
-            """
+        var allContextItems = contextItems
+        if !visibleText.isEmpty {
+            allContextItems.append("Visible Text: \(visibleText)")
+        }
+        let userMessage = OllamaClient.buildPrompt(personality: personality, contextItems: allContextItems)
         print("[Servo] On-device request:\n  instructions: \(Self.behaviorSystem)\n  prompt: \(userMessage)")
 
         // 4. Generate response

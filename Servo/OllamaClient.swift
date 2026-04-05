@@ -36,7 +36,7 @@ struct OllamaClient {
         model: String,
         personality: String,
         imageData: Data,
-        context: String? = nil
+        contextItems: [String] = []
     ) async throws -> String {
         guard let url = URL(string: "\(baseURL)/api/generate") else {
             throw OllamaError.serverNotRunning
@@ -44,12 +44,7 @@ struct OllamaClient {
 
         let base64Image = imageData.base64EncodedString()
 
-        let contextBlock = context.flatMap { $0.isEmpty ? nil : "Activity context: \($0)\n\n" } ?? ""
-        let userMessage = """
-            \(contextBlock)Character: \(personality)
-
-            React to what you see on screen. One sentence only. Maximum 20 words. Stop after the first sentence ends.
-            """
+        let userMessage = Self.buildPrompt(personality: personality, contextItems: contextItems)
 
         let body: [String: Any] = [
             "model":   model,
@@ -85,7 +80,24 @@ struct OllamaClient {
         let decoded = try JSONDecoder().decode(GenerateResponse.self, from: data)
         let trimmed = decoded.response.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw OllamaError.emptyResponse }
+        print("[Servo] Ollama response: \(trimmed)")
+        print("----")
         return trimmed
+    }
+
+    // MARK: - Prompt builder
+
+    nonisolated static func buildPrompt(personality: String, contextItems: [String]) -> String {
+        var sections: [String] = []
+
+        if !contextItems.isEmpty {
+            let bullets = contextItems.map { "- \($0)" }.joined(separator: "\n")
+            sections.append("# Context\n\(bullets)")
+        }
+
+        sections.append("# Request\nCharacter: \(personality)\n\nReact to what you see on screen. One sentence only. Maximum 20 words. Stop after the first sentence ends.")
+
+        return sections.joined(separator: "\n\n")
     }
 
     // MARK: - Check connection, return installed model names

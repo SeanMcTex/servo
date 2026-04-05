@@ -59,7 +59,7 @@ actor CaptureEngine {
         await ObservationLog.shared.append(appName: appName, windowTitle: windowTitle)
         let historicalContext = await ObservationLog.shared.contextSummary()
         let instantContext = CaptureEngine.instantContext(windowTitle: windowTitle, screenCount: screenCount)
-        let context = [instantContext, historicalContext].filter { !$0.isEmpty }.joined(separator: " ")
+        let context = instantContext + historicalContext
 
         // 4. Capture screenshot
         let cgImage: CGImage
@@ -92,7 +92,7 @@ actor CaptureEngine {
                 utterance = try await OnDeviceClient().generate(
                     personality: prompt,
                     cgImage: cgImage,
-                    context: context
+                    contextItems: context
                 )
             case .ollama:
                 guard let imageData = jpegData(from: cgImage, maxWidth: 1280) else { return }
@@ -101,7 +101,7 @@ actor CaptureEngine {
                     model: model,
                     personality: prompt,
                     imageData: imageData,
-                    context: context
+                    contextItems: context
                 )
             }
             await MainActor.run {
@@ -194,8 +194,8 @@ private enum CaptureError: Error {
 // MARK: - Instant context
 
 extension CaptureEngine {
-    /// Assembles all instantaneous context into a compact string.
-    nonisolated static func instantContext(windowTitle: String?, screenCount: Int) -> String {
+    /// Assembles all instantaneous context as a list of "Label: Value" bullet items.
+    nonisolated static func instantContext(windowTitle: String?, screenCount: Int) -> [String] {
         var parts: [String] = []
 
         // User's name
@@ -216,46 +216,46 @@ extension CaptureEngine {
         default:      period = "night"
         }
         let weekendSuffix = cal.isDateInWeekend(now) ? " (weekend)" : ""
-        parts.append("\(dayName) \(period)\(weekendSuffix)")
+        parts.append("Time: \(dayName) \(period)\(weekendSuffix)")
 
         // Battery + low power mode
         if let battery = BatteryInfo.current() {
             let lpm = ProcessInfo.processInfo.isLowPowerModeEnabled ? ", low power mode on" : ""
             parts.append(battery.contextString + lpm)
         } else if ProcessInfo.processInfo.isLowPowerModeEnabled {
-            parts.append("Low power mode on")
+            parts.append("Low Power Mode: On")
         }
 
         // Thermal state (only when notable)
         switch ProcessInfo.processInfo.thermalState {
-        case .fair:     parts.append("Mac running warm")
-        case .serious:  parts.append("Mac running hot")
-        case .critical: parts.append("Mac overheating")
+        case .fair:     parts.append("Thermals: Running warm")
+        case .serious:  parts.append("Thermals: Running hot")
+        case .critical: parts.append("Thermals: Overheating")
         default:        break
         }
 
         // Network
         if !isNetworkAvailable() {
-            parts.append("No network connection")
+            parts.append("Network: Offline")
         }
 
         // Screen count (only notable when > 1)
         if screenCount > 1 {
-            parts.append("\(screenCount) screens connected")
+            parts.append("Screens: \(screenCount) connected")
         }
 
         // User idle time (only mention after 5 min)
         let idle = userIdleSeconds()
         if idle >= 300 {
-            parts.append("User idle for \(Int(idle / 60))m")
+            parts.append("User Idle: \(Int(idle / 60)) min")
         }
 
         // Window title
         if let title = windowTitle, !title.isEmpty {
-            parts.append("Window: \"\(title)\"")
+            parts.append("Window: \(title)")
         }
 
-        return parts.joined(separator: ". ")
+        return parts
     }
 
     nonisolated private static func isNetworkAvailable() -> Bool {
