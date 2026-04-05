@@ -61,7 +61,7 @@ struct BalloonView: View {
                     .fill(.white)
                     .frame(width: 16, height: 10)
                     .scaleEffect(y: -1)
-                    .offset(x: tailOffset)
+                    .offset(x: tailOffset, y: 1)
             }
 
             Text(state.text)
@@ -82,7 +82,7 @@ struct BalloonView: View {
                 BubbleTail()
                     .fill(.white)
                     .frame(width: 16, height: 10)
-                    .offset(x: tailOffset)
+                    .offset(x: tailOffset, y: -1)
             }
         }
         .shadow(color: .black.opacity(0.18), radius: 8, x: 0, y: 3)

@@ -69,20 +69,28 @@ final class PetBalloonPanel: NSPanel {
         let screen = NSScreen.screens.first { $0.frame.intersects(iconFrame) } ?? NSScreen.main!
         let visible = screen.visibleFrame
 
-        // Vertical: prefer above, flip below if not enough room
+        // Vertical: prefer above, flip below if not enough room.
+        // Overlap the icon panel by tailOverlap so the tail tip reaches the visual emoji.
+        let tailOverlap: CGFloat = 10
         let tailSide: TailSide
         let balloonY: CGFloat
         if visible.maxY - iconFrame.maxY >= balloonSize.height {
             tailSide = .down
-            balloonY = iconFrame.maxY           // balloon bottom = icon top
+            balloonY = iconFrame.maxY - tailOverlap
         } else {
             tailSide = .up
-            balloonY = iconFrame.minY - balloonSize.height  // balloon top = icon bottom
+            balloonY = iconFrame.minY - balloonSize.height + tailOverlap
         }
 
-        // Horizontal: centred over icon, clamped to visible screen
+        // Horizontal: centred over icon, clamped so the visual bubble edge is within 8px of
+        // the physical screen edge. The bubble body is maxWidth 210 centred in the 280px panel,
+        // leaving ~35px of transparent space per side — subtract that inset from the clamp so
+        // the panel can extend off-screen while keeping the white bubble within the margin.
+        let screenEdgeMargin: CGFloat = 8
+        let bubbleHInset: CGFloat = (balloonSize.width - 210) / 2   // ≈ 35 px
         let idealX = iconFrame.midX - balloonSize.width / 2
-        let balloonX = max(visible.minX, min(visible.maxX - balloonSize.width, idealX))
+        let balloonX = max(screen.frame.minX + screenEdgeMargin - bubbleHInset,
+                           min(screen.frame.maxX - balloonSize.width - screenEdgeMargin + bubbleHInset, idealX))
 
         // Tail offset: shift from balloon centre to point at icon centre
         let tailHOffset = iconFrame.midX - (balloonX + balloonSize.width / 2)
