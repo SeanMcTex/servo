@@ -76,7 +76,10 @@ All source is in `Servo/`:
 `OllamaClient` POSTs to `/api/generate` with `stream: false`. The request includes a system prompt (personality), a user message (context string + "What do you observe?"), and the screenshot as a base64-encoded JPEG (max width 1280px, 60% quality). Temperature is 0.9, max tokens 80.
 
 ### Context string
-`CaptureEngine` builds a context string (~150 chars max) containing: time of day, battery %, thermal state, network status, multi-screen detection, user idle time, frontmost app, and a summary of apps used recently (from `ObservationLog`). This string is appended to the user turn.
+`CaptureEngine` builds a context string (~150 chars max) containing: time of day, battery %, thermal state, holiday awareness, network status, multi-screen detection, user idle time, frontmost app, and a summary of apps used recently (from `ObservationLog`). This string is appended to the user turn.
+
+### Holiday data
+`HolidayInfo.swift` injects holiday context items (e.g., `"Today: Halloween"`, `"Upcoming: Thanksgiving (3d)"`). Fixed holidays (New Year's Day, Independence Day, etc.) repeat every year by month/day — no maintenance needed. Floating holidays (MLK Day, Thanksgiving, etc.) are hardcoded through **2030**. When approaching the end of the covered range, extend `floatingHolidays` in `HolidayInfo.swift` with dates for the next 5 years.
 
 ---
 

@@ -234,6 +234,11 @@ extension CaptureEngine {
         default:        break
         }
 
+        // Holiday awareness
+        if let holiday = HolidayInfo.current() {
+            parts.append(holiday.contextString)
+        }
+
         // Network
         if !isNetworkAvailable() {
             parts.append("Network: Offline")
