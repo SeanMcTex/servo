@@ -20,23 +20,43 @@ struct ServoApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let appState = AppState()
-    private(set) var panel: FloatingPetPanel?
+    private(set) var iconPanel: PetIconPanel?
+    private(set) var balloonPanel: PetBalloonPanel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let p = FloatingPetPanel(appState: appState)
-        panel = p
+        let icon = PetIconPanel(appState: appState)
+        iconPanel = icon
+
+        let balloon = PetBalloonPanel(appState: appState, iconPanel: icon)
+        balloonPanel = balloon
+
+        icon.onMove = { [weak balloon] in balloon?.reposition() }
 
         appState.onTogglePanel = { [weak self] in
-            guard let self, let panel = self.panel else { return }
+            guard let self else { return }
             if self.appState.isPanelVisible {
-                panel.orderFront(nil)
+                self.iconPanel?.orderFront(nil)
             } else {
-                panel.orderOut(nil)
+                self.iconPanel?.orderOut(nil)
+                self.balloonPanel?.orderOut(nil)
             }
         }
 
         if appState.isPanelVisible {
-            p.orderFront(nil)
+            icon.orderFront(nil)
+            print("[Servo] Icon panel shown at \(icon.frame)")
+        } else {
+            print("[Servo] Icon panel hidden (isPanelVisible=false) — use 'Show Pet' in menu bar")
+        }
+
+        // Show greeting after panels are on screen
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard self.appState.isPanelVisible else { return }
+            let greeting = PersonalityPreset.all
+                .first { $0.prompt == self.appState.systemPrompt }?.greeting
+                ?? "Ah. The specimen activates once more."
+            balloon.show(text: greeting)
         }
 
         // Resume capture if it was active when the app last quit

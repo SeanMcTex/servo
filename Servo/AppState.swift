@@ -20,7 +20,6 @@ final class AppState {
     var utterance: String = "Watching…"
     var status: ServoStatus = .idle
     var isScreenLocked: Bool = false
-    var panelFrame: CGRect = .zero
 
     // MARK: - Persisted settings
 
