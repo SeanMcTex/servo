@@ -37,7 +37,8 @@ struct OnDeviceClient {
     nonisolated func generate(
         personality: String,
         cgImage: CGImage,
-        contextItems: [String] = []
+        contextItems: [String] = [],
+        samples: [String] = []
     ) async throws -> String {
         // 1. Check availability
         let availability = SystemLanguageModel.default.availability
@@ -54,7 +55,7 @@ struct OnDeviceClient {
         if !visibleText.isEmpty {
             allContextItems.append("Visible Text: \(visibleText)")
         }
-        let userMessage = OllamaClient.buildPrompt(personality: personality, contextItems: allContextItems)
+        let userMessage = OllamaClient.buildPrompt(personality: personality, contextItems: allContextItems, samples: samples)
         print("[Servo] On-device request:\n  instructions: \(Self.behaviorSystem)\n  prompt: \(userMessage)")
 
         // 4. Generate response
