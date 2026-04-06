@@ -62,15 +62,15 @@ final class OllamaClientPromptTests: XCTestCase {
         XCTAssertTrue(result.contains(personality))
     }
 
-    func testSectionOrder() {
+    func testSectionOrder() throws {
         let result = OllamaClient.buildPrompt(
             personality: "test",
             contextItems: ["item"],
             samples: ["sample"]
         )
-        let contextIdx = result.range(of: "# Context")!.lowerBound
-        let samplesIdx = result.range(of: "# Samples")!.lowerBound
-        let requestIdx = result.range(of: "# Request")!.lowerBound
+        let contextIdx = try XCTUnwrap(result.range(of: "# Context")).lowerBound
+        let samplesIdx = try XCTUnwrap(result.range(of: "# Samples")).lowerBound
+        let requestIdx = try XCTUnwrap(result.range(of: "# Request")).lowerBound
         XCTAssertLessThan(contextIdx, samplesIdx)
         XCTAssertLessThan(samplesIdx, requestIdx)
     }

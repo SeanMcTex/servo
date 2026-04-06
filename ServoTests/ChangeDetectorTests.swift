@@ -8,7 +8,7 @@ final class ChangeDetectorTests: XCTestCase {
 
     /// Creates a solid-color CGImage of the given size.
     private func makeImage(width: Int = 64, height: Int = 64,
-                           red: UInt8, green: UInt8, blue: UInt8) -> CGImage {
+                           red: UInt8, green: UInt8, blue: UInt8) throws -> CGImage {
         let bytesPerRow = width * 4
         var pixels = [UInt8](repeating: 255, count: height * bytesPerRow)
         for row in 0..<height {
@@ -20,7 +20,7 @@ final class ChangeDetectorTests: XCTestCase {
                 pixels[i + 3] = 255 // alpha
             }
         }
-        let ctx = CGContext(
+        let ctx = try XCTUnwrap(CGContext(
             data: &pixels,
             width: width,
             height: height,
@@ -28,35 +28,35 @@ final class ChangeDetectorTests: XCTestCase {
             bytesPerRow: bytesPerRow,
             space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        )!
-        return ctx.makeImage()!
+        ))
+        return try XCTUnwrap(ctx.makeImage())
     }
 
     // MARK: - fingerprint()
 
-    func testFingerprintLengthIs256() {
-        let image = makeImage(red: 128, green: 128, blue: 128)
+    func testFingerprintLengthIs256() throws {
+        let image = try makeImage(red: 128, green: 128, blue: 128)
         let fp = ChangeDetector.fingerprint(of: image)
         XCTAssertEqual(fp.count, 256)
     }
 
-    func testIdenticalImagesProduceIdenticalFingerprints() {
-        let image = makeImage(red: 200, green: 100, blue: 50)
+    func testIdenticalImagesProduceIdenticalFingerprints() throws {
+        let image = try makeImage(red: 200, green: 100, blue: 50)
         let fp1 = ChangeDetector.fingerprint(of: image)
         let fp2 = ChangeDetector.fingerprint(of: image)
         XCTAssertEqual(fp1, fp2)
     }
 
-    func testSolidWhiteImageFingerprint() {
-        let image = makeImage(red: 255, green: 255, blue: 255)
+    func testSolidWhiteImageFingerprint() throws {
+        let image = try makeImage(red: 255, green: 255, blue: 255)
         let fp = ChangeDetector.fingerprint(of: image)
         XCTAssertEqual(fp.count, 256)
         // All R-channel values should be 255 (white)
         XCTAssertTrue(fp.allSatisfy { $0 == 255 })
     }
 
-    func testSolidBlackImageFingerprint() {
-        let image = makeImage(red: 0, green: 0, blue: 0)
+    func testSolidBlackImageFingerprint() throws {
+        let image = try makeImage(red: 0, green: 0, blue: 0)
         let fp = ChangeDetector.fingerprint(of: image)
         XCTAssertEqual(fp.count, 256)
         // All R-channel values should be 0 (black)
@@ -70,9 +70,9 @@ final class ChangeDetectorTests: XCTestCase {
         XCTAssertFalse(ChangeDetector.hasChanged(from: fp, to: fp))
     }
 
-    func testWhiteVsBlackIsChanged() {
-        let white = makeImage(red: 255, green: 255, blue: 255)
-        let black = makeImage(red: 0,   green: 0,   blue: 0)
+    func testWhiteVsBlackIsChanged() throws {
+        let white = try makeImage(red: 255, green: 255, blue: 255)
+        let black = try makeImage(red: 0,   green: 0,   blue: 0)
         let fpWhite = ChangeDetector.fingerprint(of: white)
         let fpBlack = ChangeDetector.fingerprint(of: black)
         XCTAssertTrue(ChangeDetector.hasChanged(from: fpWhite, to: fpBlack))
@@ -101,6 +101,8 @@ final class ChangeDetectorTests: XCTestCase {
     }
 
     func testEmptyArraysReturnChanged() {
+        // Guard condition: mismatched or empty fingerprints are treated as changed
+        // so the engine always captures when there's no prior baseline.
         XCTAssertTrue(ChangeDetector.hasChanged(from: [], to: []))
     }
 

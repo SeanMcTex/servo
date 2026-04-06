@@ -275,6 +275,7 @@ extension CaptureEngine {
         return parts
     }
 
+    // App-lifetime monitor: started once on first access, intentionally never cancelled.
     private static let pathMonitor: NWPathMonitor = {
         let monitor = NWPathMonitor()
         monitor.start(queue: .global(qos: .background))

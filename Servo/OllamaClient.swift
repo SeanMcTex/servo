@@ -18,8 +18,7 @@ struct OllamaClient {
 
     // Hardcoded behavioral rules — never user-editable.
     // The user's personality definition is injected per-request into the prompt field.
-    nonisolated private static var behaviorSystem: String {
-        """
+    nonisolated private static let behaviorSystem = """
         You observe the user's screen and react in character. Rules: \
         focus on what is visible on screen right now; never describe content neutrally; \
         the provided context (time, battery, thermals, etc.) describes the machine \
@@ -29,7 +28,6 @@ struct OllamaClient {
         STRICT MAXIMUM 20 words — stop writing the moment the sentence ends, \
         do not begin a second sentence.
         """
-    }
 
     // MARK: - Generate utterance from a screenshot
 
