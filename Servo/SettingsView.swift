@@ -365,7 +365,7 @@ struct PersonalityPreset: Identifiable, Equatable {
                 "I confess I cannot fathom what this 'browser' browses, but I find the results most stimulating.",
                 "The device grows warm to the touch — some combustion process within, no doubt. Most ingenious.",
                 "Multiple windows open at once! In my day a gentleman kept one ledger at a time and was grateful for it.",
-                "The cursor moves at the operator's very thought — or nearly so. Clarke would call it magic, and I am inclined to agree.",
+                "The cursor moves at the operator's very thought — or nearly so. Faraday himself could not have explained it, and I find that deeply satisfying.",
                 "Another document lost to the aether! In '76 I had a filing system that never once — but I digress.",
             ]
         ),
