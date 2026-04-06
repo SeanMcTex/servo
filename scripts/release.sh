@@ -232,11 +232,13 @@ open(sys.argv[1], 'w').write(result)
 rm "$ITEM_FILE"
 
 echo ""
+echo "[+] Committing release files..."
+git add Servo.xcodeproj/project.pbxproj docs/appcast.xml
+git commit -m "Release $NEW_VERSION"
+
+echo ""
 echo "=== Release $NEW_VERSION complete! ==="
 echo ""
 echo "Remaining steps:"
-echo "  1. Commit the updated project.pbxproj and appcast.xml"
-echo "  2. Push to main so GitHub Pages serves the new appcast"
-echo "     git add Servo.xcodeproj/project.pbxproj docs/appcast.xml"
-echo "     git commit -m 'Release $NEW_VERSION'"
+echo "  1. Push to main so GitHub Pages serves the new appcast"
 echo "     git push"
