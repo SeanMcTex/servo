@@ -19,6 +19,7 @@ struct ServoApp: App {
 
 // MARK: - AppDelegate
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let appState = AppState()
     private(set) var iconPanel: PetIconPanel?
@@ -68,10 +69,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let dnc = DistributedNotificationCenter.default()
         dnc.addObserver(forName: .init("com.apple.screenIsLocked"),   object: nil, queue: .main) { [weak self] _ in
-            self?.appState.isScreenLocked = true
+            MainActor.assumeIsolated { self?.appState.isScreenLocked = true }
         }
         dnc.addObserver(forName: .init("com.apple.screenIsUnlocked"), object: nil, queue: .main) { [weak self] _ in
-            self?.appState.isScreenLocked = false
+            MainActor.assumeIsolated { self?.appState.isScreenLocked = false }
         }
     }
 

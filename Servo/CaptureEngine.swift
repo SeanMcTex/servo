@@ -1,6 +1,6 @@
 import CoreGraphics
 import Network
-import ScreenCaptureKit
+@preconcurrency import ScreenCaptureKit
 import AppKit
 import Foundation
 

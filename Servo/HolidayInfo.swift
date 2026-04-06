@@ -34,20 +34,21 @@ struct HolidayInfo {
 // Fixed holidays repeat every year by month/day — no maintenance required.
 // Floating holidays are hardcoded through 2030. See CLAUDE.md for update instructions.
 
-private struct FixedHoliday { let month: Int; let day: Int; let name: String }
-private struct FloatingHoliday { let year: Int; let month: Int; let day: Int; let name: String }
+private struct FixedHoliday: Sendable { let month: Int; let day: Int; let name: String }
+private struct FloatingHoliday: Sendable { let year: Int; let month: Int; let day: Int; let name: String }
 
-private let fixedHolidays: [FixedHoliday] = [
-    FixedHoliday(month: 1,  day: 1,  name: "New Year's Day"),
-    FixedHoliday(month: 7,  day: 4,  name: "Independence Day"),
-    FixedHoliday(month: 10, day: 31, name: "Halloween"),
-    FixedHoliday(month: 11, day: 11, name: "Veterans Day"),
-    FixedHoliday(month: 12, day: 24, name: "Christmas Eve"),
-    FixedHoliday(month: 12, day: 25, name: "Christmas"),
-    FixedHoliday(month: 12, day: 31, name: "New Year's Eve"),
-]
+private extension HolidayInfo {
+    nonisolated static let fixedHolidays: [FixedHoliday] = [
+        FixedHoliday(month: 1,  day: 1,  name: "New Year's Day"),
+        FixedHoliday(month: 7,  day: 4,  name: "Independence Day"),
+        FixedHoliday(month: 10, day: 31, name: "Halloween"),
+        FixedHoliday(month: 11, day: 11, name: "Veterans Day"),
+        FixedHoliday(month: 12, day: 24, name: "Christmas Eve"),
+        FixedHoliday(month: 12, day: 25, name: "Christmas"),
+        FixedHoliday(month: 12, day: 31, name: "New Year's Eve"),
+    ]
 
-private let floatingHolidays: [FloatingHoliday] = [
+    nonisolated static let floatingHolidays: [FloatingHoliday] = [
     // MLK Day (3rd Monday of January)
     FloatingHoliday(year: 2026, month: 1,  day: 19, name: "MLK Day"),
     FloatingHoliday(year: 2027, month: 1,  day: 18, name: "MLK Day"),
@@ -90,4 +91,5 @@ private let floatingHolidays: [FloatingHoliday] = [
     FloatingHoliday(year: 2028, month: 11, day: 23, name: "Thanksgiving"),
     FloatingHoliday(year: 2029, month: 11, day: 22, name: "Thanksgiving"),
     FloatingHoliday(year: 2030, month: 11, day: 28, name: "Thanksgiving"),
-]
+    ]
+}

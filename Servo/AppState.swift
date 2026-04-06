@@ -13,6 +13,7 @@ enum AIBackend: String {
     case onDevice
 }
 
+@MainActor
 @Observable
 final class AppState {
 

@@ -23,7 +23,8 @@ enum OnDeviceError: LocalizedError {
 struct OnDeviceClient {
 
     // Intentionally independent copy — same rules as OllamaClient.behaviorSystem.
-    private static let behaviorSystem = """
+    nonisolated private static var behaviorSystem: String {
+        """
         You observe the user's screen and react in character. Rules: \
         focus on what is visible on screen right now; never describe content neutrally; \
         the provided context (time, battery, thermals, etc.) describes the machine \
@@ -33,6 +34,7 @@ struct OnDeviceClient {
         STRICT MAXIMUM 20 words — stop writing the moment the sentence ends, \
         do not begin a second sentence.
         """
+    }
 
     nonisolated func generate(
         personality: String,
