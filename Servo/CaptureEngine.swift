@@ -61,6 +61,7 @@ actor CaptureEngine {
         let historicalContext = await ObservationLog.shared.contextSummary()
         let instantContext = CaptureEngine.instantContext(windowTitle: windowTitle, screenCount: screenCount, nowPlaying: nowPlaying)
         let context = instantContext + historicalContext
+        let samples = PersonalityPreset.all.first { $0.prompt == prompt }?.samples ?? []
 
         // 4. Capture screenshot
         let cgImage: CGImage
@@ -93,7 +94,8 @@ actor CaptureEngine {
                 utterance = try await OnDeviceClient().generate(
                     personality: prompt,
                     cgImage: cgImage,
-                    contextItems: context
+                    contextItems: context,
+                    samples: samples
                 )
             case .ollama:
                 guard let imageData = jpegData(from: cgImage, maxWidth: 1280) else { return }
@@ -102,7 +104,8 @@ actor CaptureEngine {
                     model: model,
                     personality: prompt,
                     imageData: imageData,
-                    contextItems: context
+                    contextItems: context,
+                    samples: samples
                 )
             }
             await MainActor.run {

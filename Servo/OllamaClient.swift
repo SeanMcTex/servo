@@ -36,14 +36,15 @@ struct OllamaClient {
         model: String,
         personality: String,
         imageData: Data,
-        contextItems: [String] = []
+        contextItems: [String] = [],
+        samples: [String] = []
     ) async throws -> String {
         guard let url = URL(string: "\(baseURL)/api/chat") else {
             throw OllamaError.serverNotRunning
         }
 
         let base64Image = imageData.base64EncodedString()
-        let userMessage = Self.buildPrompt(personality: personality, contextItems: contextItems)
+        let userMessage = Self.buildPrompt(personality: personality, contextItems: contextItems, samples: samples)
 
         let messages: [[String: Any]] = [
             ["role": "system", "content": Self.behaviorSystem],
@@ -101,12 +102,22 @@ struct OllamaClient {
 
     // MARK: - Prompt builder
 
-    nonisolated static func buildPrompt(personality: String, contextItems: [String]) -> String {
+    nonisolated static func buildPrompt(
+        personality: String,
+        contextItems: [String],
+        samples: [String] = []
+    ) -> String {
         var sections: [String] = []
 
         if !contextItems.isEmpty {
             let bullets = contextItems.map { "- \($0)" }.joined(separator: "\n")
             sections.append("# Context\n\(bullets)")
+        }
+
+        if !samples.isEmpty {
+            let picked = samples.shuffled().prefix(5)
+            let lines = picked.map { "- \($0)" }.joined(separator: "\n")
+            sections.append("# Samples\n\(lines)")
         }
 
         sections.append("# Request\nCharacter: \(personality)\n\nReact to what you see on screen. One sentence only. Maximum 20 words. Stop after the first sentence ends.")
