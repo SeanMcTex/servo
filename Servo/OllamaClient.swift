@@ -38,20 +38,23 @@ struct OllamaClient {
         imageData: Data,
         contextItems: [String] = []
     ) async throws -> String {
-        guard let url = URL(string: "\(baseURL)/api/generate") else {
+        guard let url = URL(string: "\(baseURL)/api/chat") else {
             throw OllamaError.serverNotRunning
         }
 
         let base64Image = imageData.base64EncodedString()
-
         let userMessage = Self.buildPrompt(personality: personality, contextItems: contextItems)
 
+        let messages: [[String: Any]] = [
+            ["role": "system", "content": Self.behaviorSystem],
+            ["role": "user",   "content": userMessage, "images": [base64Image]]
+        ]
+
         let body: [String: Any] = [
-            "model":   model,
-            "system":  Self.behaviorSystem,
-            "prompt":  userMessage,
-            "images":  [base64Image],
-            "stream":  false,
+            "model":    model,
+            "messages": messages,
+            "stream":   false,
+            "think":    false,
             "options": [
                 "temperature": 0.9,
                 "num_predict": 80
@@ -59,13 +62,17 @@ struct OllamaClient {
         ]
 
         // Log the request minus the image payload
-        let loggableBody: [String: Any] = body.merging(["images": ["<\(imageData.count / 1024)KB image omitted>"]]) { _, new in new }
+        let loggableMessages: [[String: Any]] = [
+            ["role": "system", "content": Self.behaviorSystem],
+            ["role": "user",   "content": userMessage, "images": ["<\(imageData.count / 1024)KB image omitted>"]]
+        ]
+        let loggableBody: [String: Any] = ["model": model, "messages": loggableMessages, "stream": false]
         if let loggableData = try? JSONSerialization.data(withJSONObject: loggableBody, options: .prettyPrinted),
            let loggableString = String(data: loggableData, encoding: .utf8) {
             print("[Servo] Ollama request:\n\(loggableString)")
         }
 
-        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 60)
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 120)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -76,9 +83,16 @@ struct OllamaClient {
             throw OllamaError.badResponse(httpResponse.statusCode)
         }
 
-        struct GenerateResponse: Decodable { let response: String }
-        let decoded = try JSONDecoder().decode(GenerateResponse.self, from: data)
-        let trimmed = decoded.response.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let rawString = String(data: data, encoding: .utf8) {
+            print("[Servo] Ollama raw response:\n\(rawString)")
+        }
+
+        struct ChatResponse: Decodable {
+            struct Message: Decodable { let content: String }
+            let message: Message
+        }
+        let decoded = try JSONDecoder().decode(ChatResponse.self, from: data)
+        let trimmed = decoded.message.content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw OllamaError.emptyResponse }
         print("[Servo] Ollama response: \(trimmed)")
         print("----")
