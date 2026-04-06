@@ -15,7 +15,7 @@ Servo is a macOS virtual pet app that periodically captures the user's screen an
 - **ScreenCaptureKit** — system screen capture
 - **AVFoundation** — `AVSpeechSynthesizer` for text-to-speech
 - **IOKit** — battery info
-- **SystemConfiguration** — network reachability
+- **Network** — `NWPathMonitor` for network reachability
 - **No Swift Package Manager dependencies** — pure Xcode project (`Servo.xcodeproj`)
 
 ---
@@ -96,13 +96,19 @@ All source is in `Servo/`:
 
 ## Testing
 
-No test target exists yet. Good candidates for unit tests:
+The `ServoTests` target is a hosted XCTest bundle (runs inside the Servo app process, required for sandboxed entitlements). Test files live in `ServoTests/`.
 
-- `ChangeDetector` — pure function, easy to test with synthetic CGImages
-- `OllamaClient` — can be tested against a mock URLSession
+Current coverage:
+
+- `ChangeDetectorTests.swift` — fingerprint length, identical-image stability, solid-color R-channel values, threshold boundary conditions, mismatched-length guard
+- `OllamaClientPromptTests.swift` — `buildPrompt` section presence/absence, ordering, sample capping at 5, personality injection
+
+Good candidates for future tests:
+
+- `OllamaClient` network layer — testable against a mock `URLSession`
 - `CaptureEngine` context string generation — pure string logic, no capture needed
 
-If adding tests, create a new `ServoTests` target in Xcode (not SPM).
+When adding new test files, add them to the `ServoTests` target in Xcode (not SPM).
 
 ---
 

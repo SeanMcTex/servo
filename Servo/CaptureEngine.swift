@@ -1,8 +1,8 @@
 import CoreGraphics
-import ScreenCaptureKit
+import Network
+@preconcurrency import ScreenCaptureKit
 import AppKit
 import Foundation
-import SystemConfiguration
 
 actor CaptureEngine {
 
@@ -45,16 +45,19 @@ actor CaptureEngine {
         }
 
         // 2. Read current settings + active display + frontmost app on MainActor
-        let (url, model, prompt, aiBackend, activeDisplayID, appName, windowTitle, screenCount, nowPlaying) = await MainActor.run {
+        let (url, model, prompt, aiBackend, activeDisplayID, appName, frontmostPID, screenCount, nowPlaying) = await MainActor.run {
             let displayID = NSScreen.main
                 .flatMap { $0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID }
             let frontmost = NSWorkspace.shared.frontmostApplication
             let appName = frontmost?.localizedName ?? "Unknown"
-            let windowTitle = frontmost.flatMap { frontmostWindowTitle(pid: $0.processIdentifier) }
+            let pid = frontmost?.processIdentifier
             let screenCount = NSScreen.screens.count
             let nowPlaying = NowPlayingMonitor.shared.currentTrack
-            return (appState.ollamaURL, appState.modelName, appState.systemPrompt, appState.aiBackend, displayID, appName, windowTitle, screenCount, nowPlaying)
+            return (appState.ollamaURL, appState.modelName, appState.systemPrompt, appState.aiBackend, displayID, appName, pid, screenCount, nowPlaying)
         }
+
+        // Fetch window title via ScreenCaptureKit (replaces deprecated CGWindowListCopyWindowInfo)
+        let windowTitle = await frontmostWindowTitle(pid: frontmostPID)
 
         // 3. Log observation and build context summary
         await ObservationLog.shared.append(appName: appName, windowTitle: windowTitle)
@@ -272,12 +275,29 @@ extension CaptureEngine {
         return parts
     }
 
+    // App-lifetime monitor: started once on first access, intentionally never cancelled.
+    private static let pathMonitor: NWPathMonitor = {
+        let monitor = NWPathMonitor()
+        monitor.start(queue: .global(qos: .background))
+        return monitor
+    }()
+
     nonisolated private static func isNetworkAvailable() -> Bool {
-        var flags = SCNetworkReachabilityFlags()
-        var addr = sockaddr(); addr.sa_len = UInt8(MemoryLayout<sockaddr>.size); addr.sa_family = sa_family_t(AF_INET)
-        guard let ref = SCNetworkReachabilityCreateWithAddress(nil, &addr) else { return true }
-        SCNetworkReachabilityGetFlags(ref, &flags)
-        return flags.contains(.reachable) && !flags.contains(.connectionRequired)
+        pathMonitor.currentPath.status == .satisfied
+    }
+
+    /// Returns the title of the frontmost window for the given process using ScreenCaptureKit.
+    /// Prefers large document-style windows over toolbars and panels.
+    private func frontmostWindowTitle(pid: pid_t?) async -> String? {
+        guard let pid else { return nil }
+        guard let content = try? await SCShareableContent.current else { return nil }
+
+        let owned = content.windows.filter { $0.owningApplication?.processID == pid }
+
+        // Prefer a window large enough to be a primary document window
+        let large = owned.first { $0.frame.width > 300 && $0.frame.height > 150 }
+        let candidate = large ?? owned.first
+        return candidate?.title.flatMap { $0.isEmpty ? nil : $0 }
     }
 
     nonisolated private static func userIdleSeconds() -> Double {
@@ -288,25 +308,3 @@ extension CaptureEngine {
     }
 }
 
-// MARK: - Window title helper
-
-/// Returns the title of the frontmost visible window owned by `pid`, if available.
-/// Prefers large document-style windows over toolbars and panels.
-/// Requires screen recording permission (already granted via entitlement).
-private func frontmostWindowTitle(pid: pid_t) -> String? {
-    guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else {
-        return nil
-    }
-
-    let ownedWindows = list.filter { ($0[kCGWindowOwnerPID as String] as? pid_t) == pid }
-
-    // Prefer a window large enough to be a primary document window
-    let largeWindow = ownedWindows.first {
-        guard let bounds = $0[kCGWindowBounds as String] as? [String: CGFloat] else { return false }
-        return (bounds["Width"] ?? 0) > 300 && (bounds["Height"] ?? 0) > 150
-    }
-
-    // Fall back to any window with a non-empty title
-    let candidate = largeWindow ?? ownedWindows.first { _ in true }
-    return (candidate?[kCGWindowName as String] as? String).flatMap { $0.isEmpty ? nil : $0 }
-}

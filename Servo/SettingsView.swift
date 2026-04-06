@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct PersonalityPreset: Identifiable, Equatable {
+struct PersonalityPreset: Identifiable, Equatable, Sendable {
     let id: String
     let name: String
     let prompt: String
@@ -8,7 +8,7 @@ struct PersonalityPreset: Identifiable, Equatable {
     let greeting: String
     let samples: [String]
 
-    static let all: [PersonalityPreset] = [
+    nonisolated static let all: [PersonalityPreset] = [
         PersonalityPreset(
             id: "naturalist",
             name: "Curious Naturalist",
