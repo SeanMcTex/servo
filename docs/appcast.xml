@@ -6,6 +6,24 @@
         <description>Most recent updates to Servo</description>
         <language>en</language>
         <item>
+            <title>Version 1.2.2</title>
+            <pubDate>Thu, 09 Apr 2026 08:00:51 -0500</pubDate>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
+            <description><![CDATA[
+                <h2>What's New</h2>
+                <ul>
+                    <li>Servo now shows current weather conditions and hourly forecast as context for your pet's commentary</li>                    <li>New app icon</li>                    <li>Two new personalities: Supportive Therapist and Extremely Online Teenager</li>                    <li>Improved commentary across all personalities for more variety and accuracy</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/SeanMcTex/servo/releases/download/v1.2.2/Servo.zip"
+                length="2690054"
+                type="application/octet-stream"
+                sparkle:edSignature="45uN5x5OeL6aTe8cCE1jRxSLXKBosB3ag4g5HkMRZwrMDvbDdOnPxITA6T+5Z9yLP8lLxPpgWDp3aVOFoD7sDQ=="
+            />
+        </item>
+        <item>
             <title>Version 1.2.1</title>
             <pubDate>Mon, 06 Apr 2026 08:37:00 -0500</pubDate>
             <sparkle:version>5</sparkle:version>
