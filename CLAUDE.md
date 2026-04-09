@@ -2,7 +2,7 @@
 
 ## What this is
 
-Servo is a macOS virtual pet app that periodically captures the user's screen and uses a local Ollama vision model to generate character-driven commentary. It's a small, focused codebase (~800 lines of Swift) with no external dependencies.
+Servo is a macOS virtual pet app that periodically captures the user's screen and uses a local Ollama vision model to generate character-driven commentary. It's a small, focused codebase (~1000 lines of Swift).
 
 ---
 
@@ -16,7 +16,9 @@ Servo is a macOS virtual pet app that periodically captures the user's screen an
 - **AVFoundation** — `AVSpeechSynthesizer` for text-to-speech
 - **IOKit** — battery info
 - **Network** — `NWPathMonitor` for network reachability
-- **No Swift Package Manager dependencies** — pure Xcode project (`Servo.xcodeproj`)
+- **WeatherKit** — current + hourly forecast (cached; fetched at most every 6 hours)
+- **CoreLocation** — one-shot location fix for WeatherKit coordinates
+- **Sparkle** (SPM) — auto-update framework
 
 ---
 
@@ -48,10 +50,11 @@ All source is in `Servo/`:
 | `ChangeDetector.swift` | Perceptual hash (16×16, R-channel mean) for frame diff; skips unchanged screens |
 | `ObservationLog.swift` | `actor`; append-only activity log; JSON persistence; used to build app-history context |
 | `BatteryInfo.swift` | IOKit wrapper returning battery percentage and charging state |
+| `WeatherInfo.swift` | WeatherKit + CoreLocation helper; fetches 7 hourly slots, caches in `AppState` |
 | `PetView.swift` | Character emoji + animated speech bubble; handles screen-edge repositioning |
 | `FloatingPetPanel.swift` | `NSPanel` wrapper — always-on-top, non-activating, non-focus-stealing |
 | `SettingsView.swift` | Settings UI; `PersonalityPreset.all` defines all built-in personalities |
-| `Servo.entitlements` | Sandbox entitlements: network client, screen recording |
+| `Servo.entitlements` | Sandbox entitlements: network client, screen recording, WeatherKit, location |
 
 ---
 
@@ -76,7 +79,12 @@ All source is in `Servo/`:
 `OllamaClient` POSTs to `/api/generate` with `stream: false`. The request includes a system prompt (personality), a user message (context string + "What do you observe?"), and the screenshot as a base64-encoded JPEG (max width 1280px, 60% quality). Temperature is 0.9, max tokens 80.
 
 ### Context string
-`CaptureEngine` builds a context string (~150 chars max) containing: time of day, battery %, thermal state, holiday awareness, network status, multi-screen detection, user idle time, frontmost app, and a summary of apps used recently (from `ObservationLog`). This string is appended to the user turn.
+`CaptureEngine` builds a context string (~150 chars max) containing: time of day, battery %, thermal state, current weather, holiday awareness, network status, multi-screen detection, user idle time, frontmost app, and a summary of apps used recently (from `ObservationLog`). This string is appended to the user turn.
+
+### Weather
+`WeatherInfo.fetchSlots()` fetches 7 hourly `WeatherSlot` entries (current hour + next 6) from WeatherKit using a one-shot CoreLocation fix. Slots are cached in `AppState` (`cachedWeatherSlots`, `lastWeatherFetch`) and persisted to UserDefaults. `CaptureEngine` refreshes them at most every 6 hours via a background `weatherTask`. `AppState.currentWeatherContext` picks the slot matching the current hour, so the context updates each hour with no additional API calls.
+
+WeatherKit requires the `com.apple.developer.weatherkit` entitlement, the WeatherKit capability enabled in Xcode Signing & Capabilities, and WeatherKit enabled on **both** the Capabilities and App Services tabs in the Apple Developer portal for the app's bundle ID.
 
 ### Holiday data
 `HolidayInfo.swift` injects holiday context items (e.g., `"Today: Halloween"`, `"Upcoming: Thanksgiving (3d)"`). Fixed holidays (New Year's Day, Independence Day, etc.) repeat every year by month/day — no maintenance needed. Floating holidays (MLK Day, Thanksgiving, etc.) are hardcoded through **2030**. When approaching the end of the covered range, extend `floatingHolidays` in `HolidayInfo.swift` with dates for the next 5 years.
@@ -85,7 +93,7 @@ All source is in `Servo/`:
 
 ## Conventions
 
-- **No external dependencies** — do not add SPM packages without discussion; the zero-dependency property is intentional
+- **Minimal external dependencies** — Sparkle (auto-update) is the only SPM package; do not add others without discussion
 - **Actors for shared state** — any new shared mutable state accessed from multiple async contexts should be actor-isolated
 - **MainActor for UI** — state writes that drive UI must happen on the main actor
 - **No TCA or Combine** — the codebase uses `@Observable` + async/await; don't introduce reactive or architectural frameworks
@@ -111,19 +119,6 @@ Good candidates for future tests:
 When adding new test files, add them to the `ServoTests` target in Xcode (not SPM).
 
 ---
-
-## Issue tracking
-
-The project uses [Beads](https://beads.dev), a local issue tracker. Issues live in `.beads/`. Use the `br` CLI to interact with them:
-
-```bash
-br --help
-br update:bd-2po   # update an issue
-br comments:bd-2po # view comments on an issue
-```
-
-The `issues.jsonl` file is the exported issue list and is committed to the repo.
-
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker
