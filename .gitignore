@@ -25,3 +25,8 @@ xcuserdata/
 # Swift Package Manager (not used here, but just in case)
 .swiftpm/
 .build/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key

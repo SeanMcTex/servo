@@ -20,14 +20,6 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXTargetDependency section */
-		32C2CD312F843FFF00E5D4C8 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 32C2CBA92F7EF11400E5D4C8 /* Servo */;
-			targetProxy = 32C2CD302F843FFF00E5D4C8 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
 /* Begin PBXFileReference section */
 		32C2CBAA2F7EF11400E5D4C8 /* Servo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Servo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		32C2CD282F843FE500E5D4C8 /* ServoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ServoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -207,6 +199,14 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		32C2CD312F843FFF00E5D4C8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 32C2CBA92F7EF11400E5D4C8 /* Servo */;
+			targetProxy = 32C2CD302F843FFF00E5D4C8 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
 		32C2CBB32F7EF11500E5D4C8 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -344,6 +344,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "";
 				INFOPLIST_KEY_SUFeedURL = "https://seanmctex.github.io/servo/appcast.xml";
 				INFOPLIST_KEY_SUPublicEDKey = "x5k/PO+ZmLEbyBZfYrZVtKsOS2DFF66vHuC7dPIuwg0=";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -379,6 +380,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "";
 				INFOPLIST_KEY_SUFeedURL = "https://seanmctex.github.io/servo/appcast.xml";
 				INFOPLIST_KEY_SUPublicEDKey = "x5k/PO+ZmLEbyBZfYrZVtKsOS2DFF66vHuC7dPIuwg0=";
 				LD_RUNPATH_SEARCH_PATHS = (

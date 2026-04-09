@@ -56,6 +56,32 @@ final class AppState {
         didSet { UserDefaults.standard.set(speakUtterances, forKey: "speakUtterances") }
     }
 
+    var cachedWeatherSlots: [WeatherSlot] = [] {
+        didSet {
+            if let data = try? JSONEncoder().encode(cachedWeatherSlots) {
+                UserDefaults.standard.set(data, forKey: "cachedWeatherSlots")
+            }
+        }
+    }
+
+    var lastWeatherFetch: Date? {
+        didSet {
+            UserDefaults.standard.set(
+                lastWeatherFetch?.timeIntervalSinceReferenceDate,
+                forKey: "lastWeatherFetch"
+            )
+        }
+    }
+
+    /// Returns the context string from the cached slot that best matches the current time.
+    var currentWeatherContext: String? {
+        let now = Date()
+        return cachedWeatherSlots
+            .filter { $0.hour <= now }
+            .max(by: { $0.hour < $1.hour })?
+            .contextString
+    }
+
     // MARK: - Speech synthesis
 
     private var synthesizer = AVSpeechSynthesizer()
@@ -89,6 +115,13 @@ final class AppState {
         if let v = d.object(forKey: "captureInterval") as? Double { captureInterval = v }
         if let v = d.object(forKey: "isPanelVisible") as? Bool { isPanelVisible = v }
         if let v = d.object(forKey: "speakUtterances") as? Bool { speakUtterances = v }
+        if let data = d.data(forKey: "cachedWeatherSlots"),
+           let slots = try? JSONDecoder().decode([WeatherSlot].self, from: data) {
+            cachedWeatherSlots = slots
+        }
+        if let v = d.object(forKey: "lastWeatherFetch") as? Double {
+            lastWeatherFetch = Date(timeIntervalSinceReferenceDate: v)
+        }
     }
 
     // MARK: - Default prompt

@@ -10,6 +10,7 @@ actor CaptureEngine {
     private init() {}
 
     private var captureTask: Task<Void, Never>?
+    private var weatherTask: Task<Void, Never>?
     private var lastFingerprint: [UInt8] = []
     private var lastAppName: String = ""
     private var lastWindowTitle: String? = nil
@@ -25,11 +26,37 @@ actor CaptureEngine {
                 try? await Task.sleep(for: .seconds(interval))
             }
         }
+
+        weatherTask?.cancel()
+        weatherTask = Task { await weatherRefreshLoop(appState: appState) }
     }
 
     func stop() {
         captureTask?.cancel()
         captureTask = nil
+        weatherTask?.cancel()
+        weatherTask = nil
+    }
+
+    // MARK: - Weather refresh loop
+
+    private func weatherRefreshLoop(appState: AppState) async {
+        while !Task.isCancelled {
+            let lastFetch = await MainActor.run { appState.lastWeatherFetch }
+            let shouldFetch = lastFetch.map { Date().timeIntervalSince($0) >= 6 * 3600 } ?? true
+            if shouldFetch {
+                do {
+                    let slots = try await WeatherInfo.fetchSlots()
+                    await MainActor.run {
+                        appState.cachedWeatherSlots = slots
+                        appState.lastWeatherFetch = Date()
+                    }
+                } catch {
+                    // Weather is optional context — silently skip on failure
+                }
+            }
+            try? await Task.sleep(for: .seconds(30 * 60))
+        }
     }
 
     // MARK: - Single capture cycle
@@ -45,7 +72,7 @@ actor CaptureEngine {
         }
 
         // 2. Read current settings + active display + frontmost app on MainActor
-        let (url, model, prompt, aiBackend, activeDisplayID, appName, frontmostPID, screenCount, nowPlaying) = await MainActor.run {
+        let (url, model, prompt, aiBackend, activeDisplayID, appName, frontmostPID, screenCount, nowPlaying, weatherContext) = await MainActor.run {
             let displayID = NSScreen.main
                 .flatMap { $0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID }
             let frontmost = NSWorkspace.shared.frontmostApplication
@@ -53,7 +80,7 @@ actor CaptureEngine {
             let pid = frontmost?.processIdentifier
             let screenCount = NSScreen.screens.count
             let nowPlaying = NowPlayingMonitor.shared.currentTrack
-            return (appState.ollamaURL, appState.modelName, appState.systemPrompt, appState.aiBackend, displayID, appName, pid, screenCount, nowPlaying)
+            return (appState.ollamaURL, appState.modelName, appState.systemPrompt, appState.aiBackend, displayID, appName, pid, screenCount, nowPlaying, appState.currentWeatherContext)
         }
 
         // Fetch window title via ScreenCaptureKit (replaces deprecated CGWindowListCopyWindowInfo)
@@ -62,7 +89,7 @@ actor CaptureEngine {
         // 3. Log observation and build context summary
         await ObservationLog.shared.append(appName: appName, windowTitle: windowTitle)
         let historicalContext = await ObservationLog.shared.contextSummary()
-        let instantContext = CaptureEngine.instantContext(windowTitle: windowTitle, screenCount: screenCount, nowPlaying: nowPlaying)
+        let instantContext = CaptureEngine.instantContext(windowTitle: windowTitle, screenCount: screenCount, nowPlaying: nowPlaying, weatherContext: weatherContext)
         let context = instantContext + historicalContext
         let samples = PersonalityPreset.all.first { $0.prompt == prompt }?.samples ?? []
 
@@ -202,7 +229,7 @@ private enum CaptureError: Error {
 
 extension CaptureEngine {
     /// Assembles all instantaneous context as a list of "Label: Value" bullet items.
-    nonisolated static func instantContext(windowTitle: String?, screenCount: Int, nowPlaying: String?) -> [String] {
+    nonisolated static func instantContext(windowTitle: String?, screenCount: Int, nowPlaying: String?, weatherContext: String?) -> [String] {
         var parts: [String] = []
 
         // User's name
@@ -239,6 +266,11 @@ extension CaptureEngine {
         case .serious:  parts.append("Thermals: Running hot")
         case .critical: parts.append("Thermals: Overheating")
         default:        break
+        }
+
+        // Weather (from cached hourly forecast slot)
+        if let weather = weatherContext, !weather.isEmpty {
+            parts.append(weather)
         }
 
         // Holiday awareness
