@@ -117,7 +117,7 @@ struct OllamaClient {
         if !samples.isEmpty {
             let picked = samples.shuffled().prefix(5)
             let lines = picked.map { "- \($0)" }.joined(separator: "\n")
-            sections.append("# Samples\n\(lines)")
+            sections.append("# Voice Samples (style reference only — calibrate tone and length to match, but do not copy or echo these; generate an original response based on what you actually see)\n\(lines)")
         }
 
         sections.append("# Request\nCharacter: \(personality)\n\nReact to what you see on screen. One sentence only. Maximum 20 words. Stop after the first sentence ends.")
